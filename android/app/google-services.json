@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "573711518088",
+    "project_id": "auth-modul-b8370",
+    "storage_bucket": "auth-modul-b8370.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:573711518088:android:238138f3ee906fb8c1123d",
+        "android_client_info": {
+          "package_name": "com.example.firebase_auth_trial"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAIT2dU_MdpWdiSyyCvcuBjOJCjGPMz5eY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
