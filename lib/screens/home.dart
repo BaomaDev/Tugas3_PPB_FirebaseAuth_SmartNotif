@@ -1,9 +1,11 @@
-import 'package:awesome_notifications/awesome_notifications.dart';
-import 'package:firebase_auth_trial/services/notification_service.dart';
-
+import 'package:firebase_auth_trial/services/firestore.dart';
 import '/screens/login.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
+final textController = TextEditingController();
+final _formKey = GlobalKey<FormState>();
+final firestoreService = FirestoreService();
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -13,125 +15,130 @@ class HomeScreen extends StatelessWidget {
     Navigator.pushReplacementNamed(context, 'login');
   }
 
+  void openNoteBox(
+    BuildContext context, {
+    String? docID,
+    String? existingText,
+  }) {
+    textController.text = existingText ?? '';
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text(docID == null ? 'Add Note' : 'Update Note'),
+            content: Form(
+              key: _formKey,
+              child: TextFormField(
+                controller: textController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Enter your note here',
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter some text';
+                  }
+                  return null;
+                },
+              ),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    final text = textController.text.trim();
+                    Navigator.pop(context);
+
+                    if (docID == null) {
+                      firestoreService.addNote(text);
+                    } else {
+                      firestoreService.updateNote(docID, text);
+                    }
+
+                    textController.clear();
+                  }
+                },
+                child: Text(docID == null ? 'Add' : 'Update'),
+              ),
+            ],
+          ),
+    ).then((_) => textController.clear());
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          return Scaffold(
-            appBar: AppBar(
-              title: const Text('Account Information'),
-              centerTitle: true,
-            ),
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Placeholder for the notification buttons
-                  OutlinedButton(
-                    onPressed: () async {
-                      await NotificationService.createNotification(
-                        id: 1,
-                        title: 'Default Notification',
-                        body: 'This is the body of the notification',
-                        summary: 'Small summary',
-                      );
-                    },
-                    child: const Text('Default Notification'),
-                  ),
-                  OutlinedButton(
-                    onPressed: () async {
-                      await NotificationService.createNotification(
-                        id: 2,
-                        title: 'Notification with Summary',
-                        body: 'This is the body of the notification',
-                        summary: 'Small summary',
-                        notificationLayout: NotificationLayout.Inbox,
-                      );
-                    },
-                    child: const Text('Notification with Summary'),
-                  ),
-                  OutlinedButton(
-                    onPressed: () async {
-                      await NotificationService.createNotification(
-                        id: 3,
-                        title: 'Progress Bar Notification',
-                        body: 'This is the body of the notification',
-                        summary: 'Small summary',
-                        notificationLayout: NotificationLayout.ProgressBar,
-                      );
-                    },
-                    child: const Text('Progress Bar Notification'),
-                  ),
-                  OutlinedButton(
-                    onPressed: () async {
-                      await NotificationService.createNotification(
-                        id: 4,
-                        title: 'Message Notification',
-                        body: 'This is the body of the notification',
-                        summary: 'Small summary',
-                        notificationLayout: NotificationLayout.Messaging,
-                      );
-                    },
-                    child: const Text('Message Notification'),
-                  ),
-                  OutlinedButton(
-                    onPressed: () async {
-                      await NotificationService.createNotification(
-                        id: 5,
-                        title: 'Big Image Notification',
-                        body: 'This is the body of the notification',
-                        summary: 'Small summary',
-                        notificationLayout: NotificationLayout.BigPicture,
-                        bigPicture: 'https://picsum.photos/300/200',
-                      );
-                    },
-                    child: const Text('Big Image Notification'),
-                  ),
-                  OutlinedButton(
-                    onPressed: () async {
-                      await NotificationService.createNotification(
-                        id: 5,
-                        title: 'Action Button Notification',
-                        body: 'This is the body of the notification',
-                        payload: {'navigate': 'true'},
-                        actionButtons: [
-                          NotificationActionButton(
-                            key: 'action_button',
-                            label: 'Click me',
-                            actionType: ActionType.Default,
-                          ),
-                        ],
-                      );
-                    },
-                    child: const Text('Action Button Notification'),
-                  ),
-                  OutlinedButton(
-                    onPressed: () async {
-                      await NotificationService.createNotification(
-                        id: 5,
-                        title: 'Scheduled Notification',
-                        body: 'This is the body of the notification',
-                        scheduled: true,
-                        interval: Duration(seconds: 5),
-                      );
-                    },
-                    child: const Text('Scheduled Notification'),
-                  ),
-                  Text('Logged in as ${snapshot.data?.email}'),
-                  const SizedBox(height: 24),
-                  OutlinedButton(
-                    onPressed: () => logout(context),
-                    child: const Text('Logout'),
-                  ),
-                ],
+        if (!snapshot.hasData) return const LoginScreen();
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Notes App'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.logout),
+                onPressed: () => logout(context),
               ),
-            ),
-          );
-        } else {
-          return const LoginScreen();
-        }
+            ],
+          ),
+          body: Column(
+            children: [
+              Expanded(
+                child: StreamBuilder(
+                  stream: firestoreService.getNotesStream(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData)
+                      return const Center(child: CircularProgressIndicator());
+
+                    final notes = snapshot.data!.docs;
+                    if (notes.isEmpty)
+                      return const Center(child: Text("No notes yet."));
+
+                    return ListView.builder(
+                      itemCount: notes.length,
+                      itemBuilder: (context, index) {
+                        final doc = notes[index];
+                        final note = doc['note'];
+                        final docID = doc.id;
+
+                        return ListTile(
+                          title: Text(note),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit),
+                                onPressed:
+                                    () => openNoteBox(
+                                      context,
+                                      docID: docID,
+                                      existingText: note,
+                                    ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete),
+                                onPressed:
+                                    () => firestoreService.deleteNote(docID),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+              Text('Logged in as ${snapshot.data?.email}'),
+              const SizedBox(height: 12),
+            ],
+          ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () => openNoteBox(context),
+            child: const Icon(Icons.add),
+          ),
+        );
       },
     );
   }

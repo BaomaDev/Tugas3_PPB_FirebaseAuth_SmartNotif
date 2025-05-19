@@ -85,4 +85,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'auth-modul-b8370.firebasestorage.app',
     measurementId: 'G-ZDCP0JW9Z0',
   );
+
 }
